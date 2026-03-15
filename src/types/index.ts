@@ -54,6 +54,7 @@ export interface Question {
   explanation?: string
   tags?: string[]
   is_public?: boolean
+  status?: 'active' | 'pending' | 'pending_review' | 'inactive'
   created_by?: string
   created_at?: string
   updated_at?: string
@@ -64,4 +65,12 @@ export interface QuestionOption {
   text: string
   image?: string
   isCorrect?: boolean
+}
+
+export interface Topic {
+  id: string
+  subject_id: string
+  name: string
+  parent_id?: string
+  grade_range?: string
 }
