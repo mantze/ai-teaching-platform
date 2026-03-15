@@ -12,10 +12,23 @@ export function QuestionBank({ onEditQuestion }: QuestionBankProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterSubject, setFilterSubject] = useState<string>('all')
   const [filterGrade, setFilterGrade] = useState<string>('all')
+  const [filterTopic, setFilterTopic] = useState<string>('all')
+  const [filterQuestionType, setFilterQuestionType] = useState<string>('all')
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['active', 'pending', 'pending_review', 'draft']) // 預設多選
   const [showInactive, setShowInactive] = useState(false) // 控制是否顯示 Inactive
+  const [topics, setTopics] = useState<{id: string, name: string}[]>([])
 
   useEffect(() => {
+    async function loadTopics() {
+      const { data, error } = await supabase
+        .from('topics')
+        .select('id, name')
+        .order('name')
+      
+      if (error) console.error('Error loading topics:', error)
+      if (data) setTopics(data)
+    }
+    loadTopics()
     loadQuestions()
   }, [])
 
@@ -90,10 +103,16 @@ export function QuestionBank({ onEditQuestion }: QuestionBankProps) {
     const grade = extractGradeFromTags(q.tags)
     const matchesGrade = filterGrade === 'all' || grade === filterGrade
     
+    // Topic 篩選
+    const matchesTopic = filterTopic === 'all' || q.topic_id === filterTopic
+    
+    // Question Type 篩選
+    const matchesQuestionType = filterQuestionType === 'all' || q.question_type === filterQuestionType
+    
     // 狀態篩選（多選）
     const matchesStatus = selectedStatuses.length === 0 || selectedStatuses.includes(q.status || 'draft')
     
-    return matchesSearch && matchesSubject && matchesGrade && matchesStatus
+    return matchesSearch && matchesSubject && matchesGrade && matchesTopic && matchesQuestionType && matchesStatus
   })
 
   if (loading) return <div className="p-4 text-center">載入中...</div>
@@ -118,26 +137,15 @@ export function QuestionBank({ onEditQuestion }: QuestionBankProps) {
 
       {/* 搜尋和篩選器 */}
       <div className="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* 搜尋框 */}
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">🔍 搜尋</label>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="搜尋題目內容、標籤、ID..."
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
+        {/* Line 1: Subject, Grade, Topic, Question Type, Level */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
           {/* 科目篩選 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">📚 科目</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">📚 科目</label>
             <select
               value={filterSubject}
               onChange={(e) => setFilterSubject(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-2 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
             >
               <option value="all">全部科目</option>
               <option value="d302b713-42c1-46ff-8844-1662f5cbf1fb">數學</option>
@@ -148,27 +156,85 @@ export function QuestionBank({ onEditQuestion }: QuestionBankProps) {
 
           {/* 年級篩選 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">🎓 年級</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">🎓 年級</label>
             <select
               value={filterGrade}
               onChange={(e) => setFilterGrade(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-2 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
             >
               <option value="all">全部年級</option>
-              <option value="P1">小一 (P1)</option>
-              <option value="P2">小二 (P2)</option>
-              <option value="P3">小三 (P3)</option>
-              <option value="P4">小四 (P4)</option>
-              <option value="P5">小五 (P5)</option>
-              <option value="P6">小六 (P6)</option>
-              <option value="S1">中一 (S1)</option>
-              <option value="S2">中二 (S2)</option>
-              <option value="S3">中三 (S3)</option>
-              <option value="S4">中四 (S4)</option>
-              <option value="S5">中五 (S5)</option>
-              <option value="S6">中六 (S6)</option>
+              <option value="P1">小一</option>
+              <option value="P2">小二</option>
+              <option value="P3">小三</option>
+              <option value="P4">小四</option>
+              <option value="P5">小五</option>
+              <option value="P6">小六</option>
+              <option value="S1">中一</option>
+              <option value="S2">中二</option>
+              <option value="S3">中三</option>
+              <option value="S4">中四</option>
+              <option value="S5">中五</option>
+              <option value="S6">中六</option>
             </select>
           </div>
+
+          {/* Topic 篩選 */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">📖 主題</label>
+            <select
+              value={filterTopic}
+              onChange={(e) => setFilterTopic(e.target.value)}
+              className="w-full px-2 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value="all">全部主題</option>
+              {topics.map(topic => (
+                <option key={topic.id} value={topic.id}>{topic.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Question Type 篩選 */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">📝 題型</label>
+            <select
+              value={filterQuestionType}
+              onChange={(e) => setFilterQuestionType(e.target.value)}
+              className="w-full px-2 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value="all">全部題型</option>
+              <option value="choice">選擇題</option>
+              <option value="multiple_choice">多選題</option>
+              <option value="fill">填充題</option>
+              <option value="answer">問答題</option>
+              <option value="matching">配對題</option>
+              <option value="ordering">排序題</option>
+            </select>
+          </div>
+
+          {/* 難度篩選 */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">⚡ 難度</label>
+            <select
+              value={filterQuestionType === 'all' ? '' : filterQuestionType}
+              onChange={(e) => {}}
+              className="w-full px-2 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm bg-gray-100"
+              disabled
+            >
+              <option>（緊接開發中）</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Line 2: 搜尋 */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">🔍 搜尋題目內容、標籤、ID</label>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="輸入關鍵字搜尋..."
+            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+          />
         </div>
 
         {/* 狀態篩選（多選） */}
@@ -289,13 +355,15 @@ export function QuestionBank({ onEditQuestion }: QuestionBankProps) {
         </div>
 
         {/* 清除篩選 */}
-        {(searchTerm || filterSubject !== 'all' || filterGrade !== 'all' || selectedStatuses.length !== 4 || showInactive) && (
+        {(searchTerm || filterSubject !== 'all' || filterGrade !== 'all' || filterTopic !== 'all' || filterQuestionType !== 'all' || selectedStatuses.length !== 4 || showInactive) && (
           <div className="mt-4 flex items-center gap-2">
             <button
               onClick={() => {
                 setSearchTerm('')
                 setFilterSubject('all')
                 setFilterGrade('all')
+                setFilterTopic('all')
+                setFilterQuestionType('all')
                 setSelectedStatuses(['active', 'pending', 'pending_review', 'draft'])
                 setShowInactive(false)
               }}
@@ -406,7 +474,7 @@ export function QuestionBank({ onEditQuestion }: QuestionBankProps) {
       <div className="mt-8 pt-6 border-t border-gray-200">
         <div className="flex justify-between items-center text-xs text-gray-500">
           <div>
-            <span>版本：1.6.0</span>
+            <span>版本：1.7.0</span>
             <span className="mx-2">|</span>
             <span>最後更新：{new Date().toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' })}</span>
           </div>
