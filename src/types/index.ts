@@ -54,7 +54,7 @@ export interface Question {
   explanation?: string
   tags?: string[]
   is_public?: boolean
-  status?: 'active' | 'pending' | 'pending_review' | 'inactive'
+  status?: 'active' | 'pending' | 'pending_review' | 'inactive' | 'draft'
   created_by?: string
   created_at?: string
   updated_at?: string
