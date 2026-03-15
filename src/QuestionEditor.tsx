@@ -13,6 +13,12 @@ interface QuestionEditorProps {
 
 type AnswerType = 'text' | 'choice' | 'multiple_choice' | 'fill' | 'matching' | 'ordering'
 
+interface QuestionOption {
+  id: string
+  text: string
+  isCorrect?: boolean
+}
+
 export function QuestionEditor({ question, onSaveComplete, onCancel, mode = 'edit' }: QuestionEditorProps) {
   const [content, setContent] = useState('')
   const [answerType, setAnswerType] = useState<AnswerType>('text')
@@ -29,6 +35,12 @@ export function QuestionEditor({ question, onSaveComplete, onCancel, mode = 'edi
   const [showPreview, setShowPreview] = useState(false)
   const [copiedId, setCopiedId] = useState(false)
   const [imageSizeWarning, setImageSizeWarning] = useState('')
+  const [options, setOptions] = useState<QuestionOption[]>([
+    { id: 'A', text: '', isCorrect: false },
+    { id: 'B', text: '', isCorrect: false },
+    { id: 'C', text: '', isCorrect: false },
+    { id: 'D', text: '', isCorrect: false }
+  ])
 
   useEffect(() => {
     async function loadTopics() {
@@ -52,6 +64,9 @@ export function QuestionEditor({ question, onSaveComplete, onCancel, mode = 'edi
       setAnswerType(qContent?.answer_type || 'text')
       setAnswerContent(qContent?.answer || '')
       setExplanationContent(qContent?.explanation || qContent?.remark || '')
+      if (qContent?.options && Array.isArray(qContent.options)) {
+        setOptions(qContent.options)
+      }
     }
   }, [question])
 
@@ -79,6 +94,31 @@ export function QuestionEditor({ question, onSaveComplete, onCancel, mode = 'edi
     return subjects[id] || '綜合'
   }
 
+  function handleOptionChange(id: string, text: string) {
+    setOptions(prev => prev.map(opt => opt.id === id ? { ...opt, text } : opt))
+  }
+
+  function handleOptionCorrect(id: string) {
+    if (answerType === 'choice') {
+      setOptions(prev => prev.map(opt => ({ ...opt, isCorrect: opt.id === id })))
+    } else {
+      setOptions(prev => prev.map(opt => opt.id === id ? { ...opt, isCorrect: !opt.isCorrect } : opt))
+    }
+  }
+
+  function addOption() {
+    const newId = String.fromCharCode(65 + options.length)
+    setOptions(prev => [...prev, { id: newId, text: '', isCorrect: false }])
+  }
+
+  function removeOption(id: string) {
+    if (options.length <= 2) {
+      alert('至少需要 2 個選項')
+      return
+    }
+    setOptions(prev => prev.filter(opt => opt.id !== id))
+  }
+
   async function handleCopyId() {
     if (question?.id) {
       await navigator.clipboard.writeText(question.id)
@@ -92,7 +132,7 @@ export function QuestionEditor({ question, onSaveComplete, onCancel, mode = 'edi
     setSaving(true)
     const questionData: any = {
       title: content + ' (複製)',
-      content: { text: content, type: 'custom', answer_type: answerType, answer: answerContent, explanation: explanationContent },
+      content: { text: content, type: 'custom', answer_type: answerType, answer: answerContent, explanation: explanationContent, options },
       question_type: answerType === 'choice' ? 'choice' : answerType === 'fill' ? 'fill' : 'answer',
       subject_id: subjectId,
       topic_id: topicId || null,
@@ -107,10 +147,7 @@ export function QuestionEditor({ question, onSaveComplete, onCancel, mode = 'edi
     if (error) alert('複製失敗：' + error.message)
     else {
       alert('✅ 題目已複製！')
-      // 跳轉到新複製嘅題目進行編輯
-      if (data && data.length > 0 && onSaveComplete) {
-        onSaveComplete()
-      }
+      if (data && data.length > 0 && onSaveComplete) onSaveComplete()
     }
   }
 
@@ -127,7 +164,7 @@ export function QuestionEditor({ question, onSaveComplete, onCancel, mode = 'edi
     setSaving(true)
     const questionData: any = {
       title: content,
-      content: { text: content, type: 'custom', answer_type: answerType, answer: answerContent, explanation: explanationContent },
+      content: { text: content, type: 'custom', answer_type: answerType, answer: answerContent, explanation: explanationContent, options },
       question_type: answerType === 'choice' ? 'choice' : answerType === 'fill' ? 'fill' : 'answer',
       subject_id: subjectId,
       topic_id: topicId || null,
@@ -184,45 +221,6 @@ export function QuestionEditor({ question, onSaveComplete, onCancel, mode = 'edi
     placeholder: '在此輸入題目內容...'
   }
 
-  if (showPreview) {
-    return (
-      <div className="p-6 max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">👁️ 預覽模式</h2>
-          <button onClick={() => setShowPreview(false)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">✏️ 返回編輯</button>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-lg border">
-          <div className="flex gap-2 mb-4">
-            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">{getSubjectName(subjectId)}</span>
-            <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">{grade}</span>
-            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">{difficulty === 'easy' ? '淺' : difficulty === 'medium' ? '中' : '深'}</span>
-          </div>
-          <div className="prose max-w-none mb-6"><div dangerouslySetInnerHTML={{ __html: content }} /></div>
-          <div className="border-t pt-4 mt-4">
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">📝 你的答案</h3>
-            {answerType === 'choice' && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 p-3 border rounded hover:bg-gray-50 cursor-pointer"><input type="radio" name="preview_answer" className="w-4 h-4" /><span>選項 A</span></div>
-                <div className="flex items-center gap-2 p-3 border rounded hover:bg-gray-50 cursor-pointer"><input type="radio" name="preview_answer" className="w-4 h-4" /><span>選項 B</span></div>
-                <div className="flex items-center gap-2 p-3 border rounded hover:bg-gray-50 cursor-pointer"><input type="radio" name="preview_answer" className="w-4 h-4" /><span>選項 C</span></div>
-                <div className="flex items-center gap-2 p-3 border rounded hover:bg-gray-50 cursor-pointer"><input type="radio" name="preview_answer" className="w-4 h-4" /><span>選項 D</span></div>
-              </div>
-            )}
-            {answerType === 'fill' && <input type="text" placeholder="請輸入答案" className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />}
-            {answerType === 'text' && <textarea placeholder="請輸入你的答案" rows={4} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />}
-          </div>
-          <div className="mt-6 flex justify-end"><button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">提交答案</button></div>
-        </div>
-        <div className="mt-8 pt-6 border-t border-gray-200">
-          <div className="flex justify-between items-center text-xs text-gray-500">
-            <div><span>版本：1.3.0</span><span className="mx-2">|</span><span>最後更新：{new Date().toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' })}</span></div>
-            <div className="flex gap-4"><span>🇭🇰 HKT (UTC+8)</span><span>AI 教學平台</span></div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
@@ -254,17 +252,6 @@ export function QuestionEditor({ question, onSaveComplete, onCancel, mode = 'edi
           <p className="text-xs text-gray-500">當前長度：{content.length} 字符</p>
         </div>
         {imageSizeWarning && <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg"><p className="text-sm text-yellow-800">{imageSizeWarning}</p></div>}
-        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h4 className="text-sm font-semibold text-blue-900 mb-2">🖼️ 圖片對齊技巧：</h4>
-          <ul className="text-xs text-blue-800 space-y-1">
-            <li>• <strong>左對齊</strong>：圖片靠左，文字環繞右側</li>
-            <li>• <strong>居中</strong>：圖片居中，適合獨立圖示</li>
-            <li>• <strong>右對齊</strong>：圖片靠右，文字環繞左側</li>
-            <li>• <strong>全寬</strong>：圖片佔滿整個寬度</li>
-            <li>• <strong>側邊</strong>：圖片浮動側邊，適合小圖示</li>
-            <li>• <strong>調整大小</strong>：點擊圖片 → 選擇 25%/50%/75%/原始大小</li>
-          </ul>
-        </div>
       </div>
 
       <div className="bg-white p-4 rounded-lg shadow-sm border mb-6">
@@ -296,6 +283,47 @@ export function QuestionEditor({ question, onSaveComplete, onCancel, mode = 'edi
           </label>
         </div>
       </div>
+
+      {(answerType === 'choice' || answerType === 'multiple_choice') && (
+        <div className="bg-white p-4 rounded-lg shadow-sm border mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <label className="block text-sm font-medium text-gray-700">
+              {answerType === 'choice' ? '🔘 選擇題選項（單選）' : '☑️ 多選題選項（多選）'}
+            </label>
+            <button onClick={addOption} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">➕ 添加選項</button>
+          </div>
+          <div className="space-y-3">
+            {options.map((opt, idx) => (
+              <div key={opt.id} className="flex items-center gap-3">
+                <div className="flex items-center gap-2 w-32">
+                  <input
+                    type={answerType === 'choice' ? 'radio' : 'checkbox'}
+                    name="correctAnswer"
+                    checked={opt.isCorrect || false}
+                    onChange={() => handleOptionCorrect(opt.id)}
+                    className="w-4 h-4 text-green-600"
+                    title="設為正確答案"
+                  />
+                  <span className="px-2 py-1 bg-gray-100 text-gray-700 text-sm rounded font-medium w-8 text-center">{opt.id}</span>
+                </div>
+                <input
+                  type="text"
+                  value={opt.text}
+                  onChange={(e) => handleOptionChange(opt.id, e.target.value)}
+                  placeholder={`選項 ${opt.id} 內容`}
+                  className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+                {options.length > 2 && (
+                  <button onClick={() => removeOption(opt.id)} className="px-2 py-1 text-red-600 hover:bg-red-50 rounded" title="移除選項">🗑️</button>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500 mt-3">
+            💡 {answerType === 'choice' ? '選擇題：只能有一個正確答案（綠色）' : '多選題：可以有多個正確答案（可多選）'}
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <div className="bg-white p-4 rounded-lg shadow-sm border">
@@ -376,18 +404,10 @@ export function QuestionEditor({ question, onSaveComplete, onCancel, mode = 'edi
         <button onClick={handleSave} disabled={saving} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-medium">{saving ? '儲存中...' : '💾 儲存'}</button>
       </div>
 
-      {/* Footer */}
       <div className="mt-8 pt-6 border-t border-gray-200">
         <div className="flex justify-between items-center text-xs text-gray-500">
-          <div>
-            <span>版本：1.3.0</span>
-            <span className="mx-2">|</span>
-            <span>最後更新：{new Date().toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' })}</span>
-          </div>
-          <div className="flex gap-4">
-            <span>🇭🇰 HKT (UTC+8)</span>
-            <span>AI 教學平台</span>
-          </div>
+          <div><span>版本：1.8.0</span><span className="mx-2">|</span><span>最後更新：{new Date().toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' })}</span></div>
+          <div className="flex gap-4"><span>🇭🇰 HKT (UTC+8)</span><span>AI 教學平台</span></div>
         </div>
       </div>
     </div>
