@@ -12,7 +12,7 @@ export function QuestionBank({ onEditQuestion }: QuestionBankProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterSubject, setFilterSubject] = useState<string>('all')
   const [filterGrade, setFilterGrade] = useState<string>('all')
-  const [filterStatus, setFilterStatus] = useState<string>('active') // 預設只显示 Active
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['active', 'pending', 'pending_review', 'draft']) // 預設多選
   const [showInactive, setShowInactive] = useState(false) // 控制是否顯示 Inactive
 
   useEffect(() => {
@@ -34,6 +34,29 @@ export function QuestionBank({ onEditQuestion }: QuestionBankProps) {
     if (onEditQuestion) {
       onEditQuestion(question)
     }
+  }
+
+  function toggleStatus(status: string) {
+    setSelectedStatuses(prev => {
+      if (prev.includes(status)) {
+        // 如果已經揀咗，就移除（至少保留一個）
+        if (prev.length > 1) {
+          return prev.filter(s => s !== status)
+        }
+        return prev // 如果係最後一個，唔移除
+      } else {
+        // 如果無揀，就添加
+        return [...prev, status]
+      }
+    })
+  }
+
+  function selectAllStatuses() {
+    setSelectedStatuses(['active', 'pending', 'pending_review', 'draft', 'inactive'])
+  }
+
+  function clearStatusSelection() {
+    setSelectedStatuses(['active', 'pending', 'pending_review', 'draft']) // 恢復預設
   }
 
   function getSubjectName(subjectId?: string): string {
@@ -67,17 +90,8 @@ export function QuestionBank({ onEditQuestion }: QuestionBankProps) {
     const grade = extractGradeFromTags(q.tags)
     const matchesGrade = filterGrade === 'all' || grade === filterGrade
     
-    // 狀態篩選（預設過濾 Inactive）
-    let matchesStatus = true
-    if (!showInactive) {
-      // 預設只显示 Active 和 Pending
-      matchesStatus = q.status === 'active' || q.status === 'pending' || q.status === 'pending_review' || q.status === 'draft'
-    } else {
-      // 如果選擇咗特定狀態
-      if (filterStatus !== 'all') {
-        matchesStatus = q.status === filterStatus
-      }
-    }
+    // 狀態篩選（多選）
+    const matchesStatus = selectedStatuses.length === 0 || selectedStatuses.includes(q.status || 'draft')
     
     return matchesSearch && matchesSubject && matchesGrade && matchesStatus
   })
@@ -157,93 +171,132 @@ export function QuestionBank({ onEditQuestion }: QuestionBankProps) {
           </div>
         </div>
 
-        {/* 狀態篩選 */}
+        {/* 狀態篩選（多選） */}
         <div className="mt-4 pt-4 border-t">
           <div className="flex items-center justify-between mb-3">
-            <label className="text-sm font-medium text-gray-700">📌 題目狀態</label>
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="text-sm font-medium text-gray-700">📌 題目狀態（多選）</label>
+            <div className="flex gap-4">
+              <button
+                onClick={selectAllStatuses}
+                className="text-xs text-blue-600 hover:text-blue-800"
+              >
+                全選
+              </button>
+              <button
+                onClick={clearStatusSelection}
+                className="text-xs text-blue-600 hover:text-blue-800"
+              >
+                重置
+              </button>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showInactive}
+                  onChange={(e) => setShowInactive(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded"
+                />
+                <span className="text-sm text-gray-600">顯示 Inactive</span>
+              </label>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {/* Active */}
+            <label className={`flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border transition-colors ${
+              selectedStatuses.includes('active') ? 'bg-green-50 border-green-500' : 'bg-white border-gray-300 hover:bg-gray-50'
+            }`}>
               <input
                 type="checkbox"
-                checked={showInactive}
-                onChange={(e) => setShowInactive(e.target.checked)}
+                checked={selectedStatuses.includes('active')}
+                onChange={() => toggleStatus('active')}
+                className="w-4 h-4 text-green-600 rounded"
+              />
+              <span className="text-sm">✅ Active</span>
+              <span className="text-xs text-gray-500">
+                ({questions.filter(q => q.status === 'active').length})
+              </span>
+            </label>
+
+            {/* Pending */}
+            <label className={`flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border transition-colors ${
+              selectedStatuses.includes('pending') || selectedStatuses.includes('pending_review') ? 'bg-yellow-50 border-yellow-500' : 'bg-white border-gray-300 hover:bg-gray-50'
+            }`}>
+              <input
+                type="checkbox"
+                checked={selectedStatuses.includes('pending') || selectedStatuses.includes('pending_review')}
+                onChange={() => {
+                  if (selectedStatuses.includes('pending') || selectedStatuses.includes('pending_review')) {
+                    setSelectedStatuses(prev => prev.filter(s => s !== 'pending' && s !== 'pending_review'))
+                  } else {
+                    setSelectedStatuses(prev => [...prev, 'pending', 'pending_review'])
+                  }
+                }}
+                className="w-4 h-4 text-yellow-600 rounded"
+              />
+              <span className="text-sm">⏳ Pending</span>
+              <span className="text-xs text-gray-500">
+                ({questions.filter(q => q.status === 'pending' || q.status === 'pending_review').length})
+              </span>
+            </label>
+
+            {/* Draft */}
+            <label className={`flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border transition-colors ${
+              selectedStatuses.includes('draft') ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-300 hover:bg-gray-50'
+            }`}>
+              <input
+                type="checkbox"
+                checked={selectedStatuses.includes('draft')}
+                onChange={() => toggleStatus('draft')}
                 className="w-4 h-4 text-blue-600 rounded"
               />
-              <span className="text-sm text-gray-600">顯示 Inactive 題目</span>
+              <span className="text-sm">📝 Draft</span>
+              <span className="text-xs text-gray-500">
+                ({questions.filter(q => q.status === 'draft').length})
+              </span>
+            </label>
+
+            {/* Inactive */}
+            <label className={`flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border transition-colors ${
+              !showInactive ? 'opacity-50 cursor-not-allowed' : selectedStatuses.includes('inactive') ? 'bg-gray-50 border-gray-500' : 'bg-white border-gray-300 hover:bg-gray-50'
+            }`}>
+              <input
+                type="checkbox"
+                checked={selectedStatuses.includes('inactive')}
+                onChange={() => toggleStatus('inactive')}
+                disabled={!showInactive}
+                className="w-4 h-4 text-gray-600 rounded"
+              />
+              <span className="text-sm">❌ Inactive</span>
+              <span className="text-xs text-gray-500">
+                ({questions.filter(q => q.status === 'inactive').length})
+              </span>
             </label>
           </div>
-          <div className="flex flex-wrap gap-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="filterStatus"
-                checked={filterStatus === 'all'}
-                onChange={() => setFilterStatus('all')}
-                disabled={!showInactive}
-                className="w-4 h-4 text-blue-600"
-              />
-              <span className={showInactive ? '' : 'text-gray-400'}>全部狀態</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="filterStatus"
-                checked={filterStatus === 'active'}
-                onChange={() => setFilterStatus('active')}
-                disabled={!showInactive}
-                className="w-4 h-4 text-green-600"
-              />
-              <span className={showInactive ? '' : 'text-gray-400'}>✅ Active</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="filterStatus"
-                checked={filterStatus === 'pending' || filterStatus === 'pending_review'}
-                onChange={() => setFilterStatus('pending')}
-                disabled={!showInactive}
-                className="w-4 h-4 text-yellow-600"
-              />
-              <span className={showInactive ? '' : 'text-gray-400'}>⏳ Pending</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="filterStatus"
-                checked={filterStatus === 'draft'}
-                onChange={() => setFilterStatus('draft')}
-                disabled={!showInactive}
-                className="w-4 h-4 text-blue-600"
-              />
-              <span className={showInactive ? '' : 'text-gray-400'}>📝 Draft</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="filterStatus"
-                checked={filterStatus === 'inactive'}
-                onChange={() => setFilterStatus('inactive')}
-                disabled={!showInactive}
-                className="w-4 h-4 text-gray-600"
-              />
-              <span className={showInactive ? '' : 'text-gray-400'}>❌ Inactive</span>
-            </label>
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-xs text-gray-600">
+              已選：{selectedStatuses.length} 個狀態
+            </span>
+            {selectedStatuses.length > 0 && (
+              <span className="text-xs text-gray-500">
+                ({selectedStatuses.join(', ')})
+              </span>
+            )}
           </div>
           {!showInactive && (
             <p className="text-xs text-gray-500 mt-2">
-              💡 預設只显示 Active、Pending、Draft 題目。勾選「顯示 Inactive 題目」以查看全部。
+              💡 勾選「顯示 Inactive」以顯示 Inactive 題目
             </p>
           )}
         </div>
 
         {/* 清除篩選 */}
-        {(searchTerm || filterSubject !== 'all' || filterGrade !== 'all' || (showInactive && filterStatus !== 'all')) && (
+        {(searchTerm || filterSubject !== 'all' || filterGrade !== 'all' || selectedStatuses.length !== 4 || showInactive) && (
           <div className="mt-4 flex items-center gap-2">
             <button
               onClick={() => {
                 setSearchTerm('')
                 setFilterSubject('all')
                 setFilterGrade('all')
-                setFilterStatus('active')
+                setSelectedStatuses(['active', 'pending', 'pending_review', 'draft'])
                 setShowInactive(false)
               }}
               className="text-sm text-blue-600 hover:text-blue-800"
@@ -329,12 +382,12 @@ export function QuestionBank({ onEditQuestion }: QuestionBankProps) {
       {filteredQuestions.length === 0 && (
         <div className="text-center py-12">
           <p className="text-gray-500 text-lg">
-            {searchTerm || filterSubject !== 'all' || filterGrade !== 'all' || filterStatus !== 'active'
+            {searchTerm || filterSubject !== 'all' || filterGrade !== 'all' || selectedStatuses.length !== 4
               ? '無符合搜尋條件嘅題目' 
               : '暫無題目'}
           </p>
           <p className="text-gray-400 text-sm mt-2">
-            {searchTerm || filterSubject !== 'all' || filterGrade !== 'all' || filterStatus !== 'active'
+            {searchTerm || filterSubject !== 'all' || filterGrade !== 'all' || selectedStatuses.length !== 4
               ? '請嘗試其他搜尋關鍵字或清除篩選'
               : '請先上傳試卷或建立新題目'}
           </p>
@@ -353,7 +406,7 @@ export function QuestionBank({ onEditQuestion }: QuestionBankProps) {
       <div className="mt-8 pt-6 border-t border-gray-200">
         <div className="flex justify-between items-center text-xs text-gray-500">
           <div>
-            <span>版本：1.5.0</span>
+            <span>版本：1.6.0</span>
             <span className="mx-2">|</span>
             <span>最後更新：{new Date().toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' })}</span>
           </div>
