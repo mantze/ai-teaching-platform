@@ -10,7 +10,7 @@ export function Review({ onEditQuestion }: ReviewProps) {
   const [questions, setQuestions] = useState<Question[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [filterStatus, setFilterStatus] = useState<string>('pending_review')
   const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
